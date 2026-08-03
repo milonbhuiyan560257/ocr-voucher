@@ -3,159 +3,321 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>OCR Voucher Scanner | ভাউচার স্ক্যানার</title>
-  <!-- Tesseract.js OCR -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <!-- SheetJS for Excel export -->
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <meta name="theme-color" content="#111111">
+  <title>OCR Voucher Scanner</title>
+  <!-- Tesseract.js -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" crossorigin="anonymous"></script>
+  <!-- SheetJS -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
   <style>
     :root {
-      --primary: #111111; --secondary: #666666; --muted: #999999;
-      --border: #e5e5e5; --surface: #fafafa; --danger: #dc3545;
-      --success: #28a745; --warning: #f0ad4e; --radius: 10px;
-      --shadow: 0 2px 8px rgba(0,0,0,0.08);
+      --primary: #111; --secondary: #555; --muted: #888;
+      --border: #ddd; --surface: #f8f8f8; --danger: #e74c3c;
+      --success: #27ae60; --warning: #f39c12; --info: #3498db;
+      --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Bengali", sans-serif;
-      background: #f5f5f5; color: var(--primary); line-height: 1.5; padding-bottom: 40px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Bengali", sans-serif;
+      background: #f0f0f0; color: var(--primary); line-height: 1.5;
+      padding-bottom: 60px; -webkit-font-smoothing: antialiased;
     }
-    .container { max-width: 720px; margin: 0 auto; padding: 16px; }
-    header { background: var(--primary); color: #fff; padding: 20px 16px; text-align: center; margin-bottom: 20px; }
-    header h1 { font-size: 20px; font-weight: 600; }
-    header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
-    .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
-    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .container { max-width: 720px; margin: 0 auto; padding: 12px; }
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff; padding: 24px 16px; text-align: center; margin-bottom: 16px;
+    }
+    header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    header p { font-size: 13px; opacity: 0.85; margin-top: 6px; line-height: 1.6; }
+
+    .card {
+      background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 16px; margin-bottom: 14px; border: 1px solid #eee;
+    }
+    .card-title {
+      font-size: 15px; font-weight: 600; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .card-title svg { width: 20px; height: 20px; color: var(--secondary); flex-shrink: 0; }
+
+    /* Preview box */
     .preview-box {
-      width: 100%; aspect-ratio: 4/3; border: 2px dashed var(--border); border-radius: var(--radius);
+      width: 100%; min-height: 220px; aspect-ratio: 4/3;
+      border: 2px dashed var(--border); border-radius: var(--radius);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; color: var(--muted); background: var(--surface); position: relative; overflow: hidden;
+      gap: 10px; color: var(--muted); background: var(--surface);
+      position: relative; overflow: hidden; cursor: pointer; transition: border-color 0.2s;
     }
-    .preview-box img, .preview-box video { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; background: #000; }
-    .preview-box .placeholder { text-align: center; padding: 20px; }
+    .preview-box:active { border-color: var(--primary); }
+    .preview-box img, .preview-box video {
+      width: 100%; height: 100%; object-fit: contain;
+      position: absolute; top: 0; left: 0; background: #000;
+    }
+    .preview-box .placeholder { text-align: center; padding: 24px; pointer-events: none; }
+    .preview-box .placeholder svg { width: 56px; height: 56px; margin-bottom: 10px; opacity: 0.35; }
+
+    /* Buttons */
     .btn {
-      display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;
-      border: 1px solid var(--border); background: #fff; color: var(--primary); font-size: 14px;
-      font-weight: 500; cursor: pointer; transition: all 0.15s ease; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 12px 18px; border-radius: 10px; border: 1px solid var(--border);
+      background: #fff; color: var(--primary); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; min-height: 48px; flex: 1;
+      -webkit-appearance: none; appearance: none; touch-action: manipulation;
     }
     .btn:hover { background: var(--surface); }
-    .btn:active { transform: scale(0.98); }
+    .btn:active { transform: scale(0.97); }
     .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
     .btn-primary:hover { background: #333; }
-    .btn-success { color: var(--success); border-color: var(--success); }
-    .btn-success:hover { background: rgba(40,167,69,0.08); }
+    .btn-success { background: var(--success); color: #fff; border-color: var(--success); }
+    .btn-success:hover { background: #219a52; }
     .btn-danger { color: var(--danger); border-color: var(--danger); }
-    .btn-danger:hover { background: rgba(220,53,69,0.08); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-    .progress-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 10px; }
-    .progress-bar .fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width 0.3s ease; width: 0%; }
-    .progress-text { font-size: 12px; color: var(--muted); margin-top: 6px; text-align: center; }
-    .field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-    .field-row label { width: 110px; font-size: 13px; color: var(--secondary); flex-shrink: 0; font-weight: 500; }
-    .field-row input, .field-row select { flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
-    .field-row input:focus, .field-row select:focus { outline: none; border-color: var(--primary); }
-    .badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
-    .badge.auto { background: rgba(40,167,69,0.12); color: var(--success); }
-    .badge.manual { background: rgba(220,53,69,0.12); color: var(--danger); }
-    .ocr-raw { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-family: "SF Mono", Consolas, monospace; font-size: 12px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+    .btn-danger:hover { background: rgba(231,76,60,0.08); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .btn-group .btn { flex: 1; min-width: 0; white-space: nowrap; }
+
+    /* Progress */
+    .progress-wrap { margin-top: 12px; }
+    .progress-bar {
+      width: 100%; height: 8px; background: #e8e8e8; border-radius: 4px;
+      overflow: hidden; position: relative;
+    }
+    .progress-bar .fill {
+      height: 100%; background: linear-gradient(90deg, var(--primary), #444);
+      border-radius: 4px; transition: width 0.4s ease; width: 0%;
+    }
+    .progress-text {
+      font-size: 12px; color: var(--secondary); margin-top: 6px;
+      text-align: center; font-weight: 500;
+    }
+
+    /* Fields */
+    .field-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .field-row label {
+      width: 100px; font-size: 13px; color: var(--secondary);
+      flex-shrink: 0; font-weight: 600;
+    }
+    .field-row input {
+      flex: 1; padding: 11px 12px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 15px; background: #fff; color: var(--primary);
+      -webkit-appearance: none; appearance: none; min-height: 44px;
+    }
+    .field-row input:focus { outline: none; border-color: var(--primary); }
+    .badge {
+      font-size: 10px; padding: 3px 8px; border-radius: 6px;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+    .badge.ok { background: rgba(39,174,96,0.12); color: var(--success); }
+    .badge.warn { background: rgba(243,156,18,0.12); color: var(--warning); }
+    .badge.err { background: rgba(231,76,60,0.12); color: var(--danger); }
+
+    .ocr-raw {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 12px; font-family: "SF Mono", Consolas, monospace;
+      font-size: 12px; line-height: 1.6; color: var(--secondary);
+      max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+    }
+
+    /* Table */
     .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .data-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--secondary); font-weight: 600; font-size: 11px; text-transform: uppercase; }
-    .data-table td { padding: 10px; border-bottom: 1px solid var(--border); }
-    .data-table tr:hover td { background: var(--surface); }
-    .data-table .amount { font-variant-numeric: tabular-nums; text-align: right; font-weight: 500; }
-    .data-table .voucher-code { font-family: "SF Mono", Consolas, monospace; font-size: 12px; background: var(--surface); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); }
-    .data-table .row-actions { opacity: 0; transition: opacity 0.15s ease; text-align: right; }
-    .data-table tr:hover .row-actions { opacity: 1; }
-    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 12px 20px; border-radius: 10px; background: var(--primary); color: #fff; font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1000; opacity: 0; transition: all 0.3s ease; pointer-events: none; }
+    .data-table th {
+      text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--border);
+      color: var(--secondary); font-weight: 700; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .data-table td { padding: 12px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table .amount {
+      font-variant-numeric: tabular-nums; text-align: right; font-weight: 600;
+    }
+    .data-table .vcode {
+      font-family: "SF Mono", Consolas, monospace; font-size: 11px;
+      background: var(--surface); padding: 3px 8px; border-radius: 5px;
+      border: 1px solid var(--border); display: inline-block;
+    }
+    .data-table .del-btn {
+      opacity: 0; transition: opacity 0.15s; padding: 6px 10px; font-size: 12px;
+    }
+    .data-table tr:active .del-btn, .data-table tr:hover .del-btn { opacity: 1; }
+
+    .empty-state { text-align: center; padding: 36px 20px; color: var(--muted); }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 10px; opacity: 0.25; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 20px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      padding: 14px 22px; border-radius: 12px; background: var(--primary);
+      color: #fff; font-size: 14px; font-weight: 600;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25); z-index: 9999;
+      opacity: 0; transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none; max-width: 90vw; text-align: center; line-height: 1.5;
+    }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
     .hidden { display: none !important; }
+
+    /* Snap button overlay */
+    .snap-overlay {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 20; width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(255,255,255,0.95); border: 4px solid var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      -webkit-appearance: none; appearance: none;
+    }
+    .snap-overlay:active { transform: translateX(-50%) scale(0.92); }
+    .snap-overlay::after {
+      content: ''; width: 56px; height: 56px; background: var(--primary);
+      border-radius: 50%; transition: background 0.2s;
+    }
+    .snap-overlay:active::after { background: var(--danger); }
+
     @media (max-width: 480px) {
       .field-row { flex-direction: column; align-items: stretch; gap: 4px; }
-      .field-row label { width: auto; }
-      .btn-group .btn { flex: 1; justify-content: center; }
+      .field-row label { width: auto; font-size: 12px; }
+      .btn-group .btn { font-size: 13px; padding: 14px 8px; }
+      header h1 { font-size: 18px; }
       .data-table { font-size: 12px; }
-      .data-table th, .data-table td { padding: 6px 8px; }
+      .data-table th, .data-table td { padding: 8px 6px; }
+      .data-table .del-btn { opacity: 1; padding: 4px 8px; }
     }
   </style>
+<base target="_blank">
 </head>
 <body>
   <header>
     <h1>📄 OCR Voucher Scanner</h1>
-    <p>মোবাইল ক্যামেরা দিয়ে ভাউচার স্ক্যান করুন → OCR → Excel/CSV/TXT এক্সপোর্ট</p>
+    <p>মোবাইল ক্যামেরা → OCR → Excel/CSV/TXT এক্সপোর্ট<br><small>100% offline • No server needed</small></p>
   </header>
+
   <div class="container">
-    <!-- Camera / Upload -->
+    <!-- Engine Status Banner -->
+    <div class="card" id="statusCard" style="padding:10px 14px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="engineDot" style="width:10px;height:10px;border-radius:50%;background:var(--warning);display:inline-block;flex-shrink:0;"></span>
+        <span id="engineText" style="font-size:13px;font-weight:600;color:var(--secondary);">Loading OCR engine...</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--muted);">Tap buttons even while loading</span>
+      </div>
+    </div>
+
+    <!-- Capture -->
     <div class="card">
       <div class="card-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         Capture voucher image
-        <span class="badge manual" id="engineStatus" style="text-transform:none;">Loading Tesseract...</span>
       </div>
       <div class="preview-box" id="previewBox" onclick="document.getElementById('fileInput').click()">
         <div class="placeholder" id="placeholder">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          <div>Tap to upload or use camera below</div>
-          <div style="font-size:12px; margin-top:4px;">Supports JPG, PNG, WEBP</div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <div style="font-weight:600;color:var(--secondary);">Tap here to upload image</div>
+          <div style="font-size:12px;">Or use camera button below</div>
         </div>
-        <video id="video" class="hidden" autoplay playsinline></video>
+        <video id="video" class="hidden" autoplay playsinline muted></video>
         <canvas id="canvas" class="hidden"></canvas>
-        <button class="btn btn-primary hidden" id="btnSnap" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:10;" onclick="event.stopPropagation();takeSnapshot()">📷 Take Photo</button>
+        <button class="snap-overlay hidden" id="btnSnap" onclick="event.stopPropagation();takeSnapshot()"></button>
       </div>
-      <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleFile(event)">
-      <div class="btn-group" style="margin-top:12px;">
-        <button class="btn btn-primary" id="btnCamera" onclick="startCamera()">📷 Open Camera</button>
-        <button class="btn" onclick="document.getElementById('fileInput').click()">⬆️ Upload Image</button>
-        <button class="btn" onclick="loadDemo()">🧪 Load Demo</button>
+      <input type="file" id="fileInput" class="hidden" accept="image/*" capture="environment" onchange="handleFile(event)">
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btnCamera" onclick="startCamera()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Open Camera
+        </button>
+        <button class="btn" onclick="document.getElementById('fileInput').click()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload
+        </button>
+        <button class="btn" onclick="loadDemo()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Demo
+        </button>
       </div>
-      <div class="progress-bar hidden" id="progressBar"><div class="fill" id="progressFill"></div></div>
-      <div class="progress-text hidden" id="progressText"></div>
+      <div class="progress-wrap hidden" id="progressWrap">
+        <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+        <div class="progress-text" id="progressText"></div>
+      </div>
     </div>
 
-    <!-- OCR Results -->
+    <!-- Results -->
     <div class="card hidden" id="resultCard">
       <div class="card-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
-        Extracted fields <span class="badge auto" id="ocrStatus">Ready</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+        Extracted fields
+        <span class="badge ok" id="ocrStatus">Ready</span>
       </div>
-      <div class="field-row"><label>Name</label><input type="text" id="fieldName" placeholder="e.g. Md. Rakib Hasan"><span class="badge auto" id="badgeName">auto</span></div>
-      <div class="field-row"><label>Voucher No</label><input type="text" id="fieldVoucher" placeholder="e.g. VCH-2026-001234"><span class="badge auto" id="badgeVoucher">auto</span></div>
-      <div class="field-row"><label>Amount (৳)</label><input type="number" id="fieldAmount" placeholder="e.g. 5000.00" step="0.01"><span class="badge auto" id="badgeAmount">auto</span></div>
-      <div class="field-row"><label>Date</label><input type="date" id="fieldDate"><span class="badge auto" id="badgeDate">auto</span></div>
-      <div style="margin-top:10px;">
-        <div style="font-size:12px; color:var(--muted); margin-bottom:4px; font-weight:500;">Raw OCR text</div>
+      <div class="field-row"><label>Name</label><input type="text" id="fieldName" placeholder="e.g. Md. Rakib Hasan"><span class="badge ok" id="badgeName">auto</span></div>
+      <div class="field-row"><label>Voucher No</label><input type="text" id="fieldVoucher" placeholder="e.g. VCH-2026-001234"><span class="badge ok" id="badgeVoucher">auto</span></div>
+      <div class="field-row"><label>Amount (৳)</label><input type="number" id="fieldAmount" placeholder="e.g. 5000.00" step="0.01"><span class="badge ok" id="badgeAmount">auto</span></div>
+      <div class="field-row"><label>Date</label><input type="date" id="fieldDate"><span class="badge ok" id="badgeDate">auto</span></div>
+      <div style="margin-top:8px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;">Raw OCR text</div>
         <div class="ocr-raw" id="rawOcrText">No text extracted yet.</div>
       </div>
-      <div class="btn-group" style="margin-top:12px;">
-        <button class="btn btn-primary" onclick="addToTable()">➕ Add to table</button>
-        <button class="btn" onclick="clearFields()">🗑️ Clear</button>
+      <div class="btn-group">
+        <button class="btn btn-success" onclick="addToTable()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Add to table
+        </button>
+        <button class="btn" onclick="clearFields()">Clear</button>
       </div>
     </div>
 
-    <!-- Data Table -->
+    <!-- Manual Entry (fallback) -->
+    <div class="card" id="manualCard">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Manual entry (no camera/OCR needed)
+      </div>
+      <div class="field-row"><label>Name</label><input type="text" id="manualName" placeholder="Enter name"></div>
+      <div class="field-row"><label>Voucher No</label><input type="text" id="manualVoucher" placeholder="Enter voucher number"></div>
+      <div class="field-row"><label>Amount (৳)</label><input type="number" id="manualAmount" placeholder="0.00" step="0.01"></div>
+      <div class="field-row"><label>Date</label><input type="date" id="manualDate"></div>
+      <div class="btn-group">
+        <button class="btn btn-success" onclick="addManual()">Add manually</button>
+        <button class="btn" onclick="clearManual()">Clear</button>
+      </div>
+    </div>
+
+    <!-- Table -->
     <div class="card">
       <div class="card-title" style="justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-          Scanned vouchers <span class="badge manual" id="countBadge">0 items</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Scanned vouchers
+          <span class="badge warn" id="countBadge">0 items</span>
         </div>
-        <button class="btn btn-danger" onclick="clearAll()" id="btnClearAll" disabled>🗑️ Clear all</button>
+        <button class="btn btn-danger" onclick="clearAll()" id="btnClearAll" disabled style="flex:0;padding:8px 14px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Clear all
+        </button>
       </div>
       <div id="tableContainer">
         <div class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-          <div>No vouchers scanned yet</div>
-          <div>Use camera or upload to get started</div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <div style="font-weight:600;color:var(--secondary);">No vouchers yet</div>
+          <div style="font-size:12px;">Use camera, upload, or manual entry</div>
         </div>
       </div>
-      <div class="btn-group" style="margin-top:12px;">
-        <button class="btn btn-success" onclick="exportXLSX()" id="btnXLSX" disabled>📊 Export .xlsx</button>
-        <button class="btn" onclick="exportCSV()" id="btnCSV" disabled>📝 Export .csv</button>
-        <button class="btn" onclick="exportTXT()" id="btnTXT" disabled>📄 Export .txt</button>
+      <div class="btn-group" style="margin-top:14px;">
+        <button class="btn btn-success" onclick="exportXLSX()" id="btnXLSX" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export .xlsx
+        </button>
+        <button class="btn" onclick="exportCSV()" id="btnCSV" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export .csv
+        </button>
+        <button class="btn" onclick="exportTXT()" id="btnTXT" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export .txt
+        </button>
       </div>
     </div>
   </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
@@ -164,64 +326,160 @@
     let currentImage = null;
     let worker = null;
     let isProcessing = false;
+    let tesseractReady = false;
+    let xlsxReady = false;
 
-    // ==================== INIT TESSERACT ====================
-    async function initTesseract() {
-      try {
-        worker = await Tesseract.createWorker('eng+ben', 1, {
-          logger: m => {
-            if (m.status === 'recognizing text') updateProgress(Math.round(m.progress * 100), 'Recognizing text...');
-            else if (m.status === 'loading language traineddata') updateProgress(Math.round(m.progress * 100), 'Loading Bengali + English models...');
-          }
-        });
-        document.getElementById('engineStatus').textContent = 'Tesseract ready';
-        document.getElementById('engineStatus').className = 'badge auto';
-        showToast('Tesseract.js loaded successfully!');
-      } catch (e) {
-        document.getElementById('engineStatus').textContent = 'Tesseract error';
-        document.getElementById('engineStatus').className = 'badge manual';
+    // ==================== INIT ====================
+    function checkLibraries() {
+      xlsxReady = typeof XLSX !== 'undefined';
+      if (!xlsxReady) {
+        showToast('Excel library loading... please wait.');
+        // Retry check
+        setTimeout(checkLibraries, 2000);
       }
     }
-    initTesseract();
+    checkLibraries();
+
+    async function initTesseract() {
+      updateEngineStatus('loading', 'Loading OCR engine...');
+      try {
+        // Try loading with timeout
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Tesseract load timeout')), 60000)
+        );
+        const workerPromise = Tesseract.createWorker('eng', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              updateProgress(Math.round(m.progress * 100), 'Reading text...');
+            } else if (m.status === 'loading language traineddata') {
+              updateProgress(Math.round(m.progress * 100), 'Loading language data...');
+            }
+          }
+        });
+        worker = await Promise.race([workerPromise, timeoutPromise]);
+        tesseractReady = true;
+        updateEngineStatus('ready', 'OCR engine ready');
+        showToast('OCR ready! You can now scan vouchers.');
+      } catch (e) {
+        console.error('Tesseract init failed:', e);
+        tesseractReady = false;
+        updateEngineStatus('error', 'OCR failed — use manual entry');
+        showToast('OCR could not load. Use Manual Entry below.');
+      }
+    }
+    // Delay Tesseract init so page renders first
+    setTimeout(initTesseract, 500);
+
+    function updateEngineStatus(state, text) {
+      const dot = document.getElementById('engineDot');
+      const txt = document.getElementById('engineText');
+      txt.textContent = text;
+      if (state === 'ready') { dot.style.background = 'var(--success)'; }
+      else if (state === 'error') { dot.style.background = 'var(--danger)'; }
+      else { dot.style.background = 'var(--warning)'; }
+    }
 
     // ==================== CAMERA ====================
+    let videoStream = null;
+
     async function startCamera() {
+      // Check HTTPS
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        showToast('Camera needs HTTPS. Use "Upload" instead.');
+        return;
+      }
+      // Check API support
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('Camera not supported in this browser. Use Upload.');
+        return;
+      }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+        // Stop any existing stream
+        if (videoStream) {
+          videoStream.getTracks().forEach(t => t.stop());
+          videoStream = null;
+        }
+        const constraints = {
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false
+        };
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
         const video = document.getElementById('video');
-        video.srcObject = stream;
+        video.srcObject = videoStream;
         video.classList.remove('hidden');
         document.getElementById('placeholder').classList.add('hidden');
         document.getElementById('btnSnap').classList.remove('hidden');
         document.getElementById('btnCamera').disabled = true;
-        showToast('Camera active. Point at voucher and tap Take Photo.');
+        showToast('Camera on! Point at voucher and tap the circle.');
       } catch (err) {
-        showToast('Camera access denied. Use upload instead.');
+        console.error('Camera error:', err.name, err.message);
+        let msg = 'Camera error: ';
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          msg += 'Permission denied. Go to browser settings and allow camera, then refresh.';
+        } else if (err.name === 'NotFoundError') {
+          msg += 'No camera found.';
+        } else if (err.name === 'NotReadableError') {
+          msg += 'Camera is in use by another app.';
+        } else {
+          msg += err.message;
+        }
+        showToast(msg);
       }
     }
 
     function takeSnapshot() {
       const video = document.getElementById('video');
       const canvas = document.getElementById('canvas');
+      if (!video.videoWidth) {
+        showToast('Camera not ready yet. Wait a moment.');
+        return;
+      }
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
-      currentImage = canvas.toDataURL('image/jpeg', 0.9);
-      const stream = video.srcObject;
-      if (stream) stream.getTracks().forEach(t => t.stop());
+      currentImage = canvas.toDataURL('image/jpeg', 0.92);
+
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+        videoStream = null;
+      }
       video.classList.add('hidden');
       document.getElementById('btnSnap').classList.add('hidden');
       document.getElementById('btnCamera').disabled = false;
+
       showPreview(currentImage);
-      runOCR(currentImage);
+      if (tesseractReady && worker) {
+        runOCR(currentImage);
+      } else {
+        showToast('OCR not ready. You can enter data manually below.');
+        document.getElementById('manualCard').scrollIntoView({ behavior: 'smooth' });
+      }
     }
 
     // ==================== FILE UPLOAD ====================
     function handleFile(e) {
       const file = e.target.files[0];
-      if (!file || !file.type.startsWith('image/')) { showToast('Please select an image file.'); return; }
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image (JPG, PNG, WEBP).');
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = ev => { currentImage = ev.target.result; showPreview(currentImage); runOCR(currentImage); };
+      reader.onload = ev => {
+        currentImage = ev.target.result;
+        showPreview(currentImage);
+        if (tesseractReady && worker) {
+          runOCR(currentImage);
+        } else {
+          showToast('OCR not ready. Use Manual Entry below.');
+          document.getElementById('manualCard').scrollIntoView({ behavior: 'smooth' });
+        }
+      };
+      reader.onerror = () => showToast('Failed to read image file.');
       reader.readAsDataURL(file);
     }
 
@@ -231,7 +489,8 @@
       const existing = box.querySelector('img.preview-img');
       if (existing) existing.remove();
       const img = document.createElement('img');
-      img.src = src; img.className = 'preview-img';
+      img.src = src;
+      img.className = 'preview-img';
       img.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;background:#000;';
       box.appendChild(img);
     }
@@ -242,7 +501,7 @@
       c.width = 700; c.height = 450;
       const x = c.getContext('2d');
       x.fillStyle = '#fff'; x.fillRect(0, 0, 700, 450);
-      x.strokeStyle = '#333'; x.lineWidth = 3; x.strokeRect(20, 20, 660, 410);
+      x.strokeStyle = '#222'; x.lineWidth = 3; x.strokeRect(20, 20, 660, 410);
       x.fillStyle = '#111'; x.font = 'bold 32px sans-serif'; x.fillText('VOUCHER RECEIPT', 230, 70);
       x.strokeStyle = '#ccc'; x.lineWidth = 1; x.beginPath(); x.moveTo(40, 90); x.lineTo(660, 90); x.stroke();
       x.fillStyle = '#333'; x.font = '22px sans-serif';
@@ -254,36 +513,45 @@
       x.fillText('Authorized: _________________', 400, 380);
       currentImage = c.toDataURL('image/png');
       showPreview(currentImage);
-      runOCR(currentImage);
+      if (tesseractReady && worker) {
+        runOCR(currentImage);
+      } else {
+        showToast('OCR loading... Try again in a few seconds, or use Manual Entry.');
+      }
     }
 
     // ==================== OCR ====================
     async function runOCR(imageSrc) {
       if (isProcessing) return;
+      if (!worker) {
+        showToast('OCR engine not ready. Please wait or use Manual Entry.');
+        return;
+      }
       isProcessing = true;
       document.getElementById('resultCard').classList.add('hidden');
-      document.getElementById('progressBar').classList.remove('hidden');
-      document.getElementById('progressText').classList.remove('hidden');
-      updateProgress(10, 'Initializing OCR engine...');
+      document.getElementById('progressWrap').classList.remove('hidden');
+      updateProgress(5, 'Starting OCR...');
+
       try {
-        if (!worker) { updateProgress(30, 'Creating worker...'); worker = await Tesseract.createWorker('eng+ben'); }
-        updateProgress(50, 'Recognizing text...');
+        updateProgress(30, 'Reading image...');
         const result = await worker.recognize(imageSrc);
-        updateProgress(90, 'Parsing fields...');
-        parseAndFill(result.data.text);
+        const text = result.data.text;
+        updateProgress(80, 'Parsing fields...');
+        parseAndFill(text);
         updateProgress(100, 'Done!');
         setTimeout(() => {
-          document.getElementById('progressBar').classList.add('hidden');
-          document.getElementById('progressText').classList.add('hidden');
+          document.getElementById('progressWrap').classList.add('hidden');
           document.getElementById('resultCard').classList.remove('hidden');
+          document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
           isProcessing = false;
-          showToast('OCR complete! Fields auto-detected.');
+          showToast('OCR complete! Review and tap Add to table.');
         }, 400);
       } catch (err) {
-        document.getElementById('progressBar').classList.add('hidden');
-        document.getElementById('progressText').classList.add('hidden');
+        console.error('OCR error:', err);
+        document.getElementById('progressWrap').classList.add('hidden');
         isProcessing = false;
-        showToast('OCR failed: ' + err.message);
+        showToast('OCR failed. Use Manual Entry below.');
+        document.getElementById('manualCard').scrollIntoView({ behavior: 'smooth' });
       }
     }
 
@@ -293,28 +561,55 @@
     }
 
     function parseAndFill(rawText) {
-      document.getElementById('rawOcrText').textContent = rawText;
+      document.getElementById('rawOcrText').textContent = rawText || '(No text detected)';
       let name = '', voucher = '', amount = '', date = new Date().toISOString().split('T')[0];
-      const np = [/(?:Name|Payee|Received from|Recipient)[:\s]+([A-Z][a-zA-Z.\s]+)/i, /(?:Name|Payee|Received from)[:\s]+([\u0980-\u09FF\s]+)/, /([A-Z][a-z]+\s+[A-Z][a-z]+)/];
+
+      const np = [
+        /(?:Name|Payee|Received from|Recipient|To)[:\s]+([A-Z][a-zA-Z.\s]+)/i,
+        /(?:Name|Payee|Received from)[:\s]+([ঀ-৿\s]+)/,
+        /([A-Z][a-z]+\s+[A-Z][a-z]+)/
+      ];
       for (const p of np) { const m = rawText.match(p); if (m) { name = m[1].trim(); break; } }
-      const vp = [/(?:Voucher|Voucher#|Voucher No|Voucher Number|Receipt No)[:\s#-]+([A-Z0-9\-]+)/i, /(?:VCH|RCPT|REF)[-\s]?([0-9\-]+)/i];
+
+      const vp = [
+        /(?:Voucher|Voucher#|Voucher No|Voucher Number|Receipt No|Ref)[:\s#-]+([A-Z0-9\-]+)/i,
+        /(?:VCH|RCPT|REF|INV)[-\s]?([0-9\-]+)/i
+      ];
       for (const p of vp) { const m = rawText.match(p); if (m) { voucher = m[1].trim(); break; } }
-      const ap = [/(?:Amount|Total|Paid|Tk|৳|BDT|Rs)[:\s]+(?:Tk\.?|৳|BDT|Rs\.?)?\s*([0-9,]+\.?\d{0,2})/i, /([0-9,]+\.\d{2})/];
+
+      const ap = [
+        /(?:Amount|Total|Paid|Tk|৳|BDT|Rs)[:\s]+(?:Tk\.?|৳|BDT|Rs\.?)?\s*([0-9,]+\.?\d{0,2})/i,
+        /([0-9,]+\.\d{2})/
+      ];
       for (const p of ap) { const m = rawText.match(p); if (m) { amount = m[1].replace(/,/g, ''); break; } }
-      const dp = [/(\d{2}[\/\-.]\d{2}[\/\-.]\d{4})/, /(\d{4}[\/\-.]\d{2}[\/\-.]\d{2})/];
-      for (const p of dp) { const m = rawText.match(p); if (m) { const pts = m[1].split(/[\/\-.]/); date = pts[0].length === 4 ? `${pts[0]}-${pts[1]}-${pts[2]}` : `${pts[2]}-${pts[1]}-${pts[0]}`; break; } }
+
+      const dp = [
+        /(\d{2}[\/\-.]\d{2}[\/\-.]\d{4})/,
+        /(\d{4}[\/\-.]\d{2}[\/\-.]\d{2})/
+      ];
+      for (const p of dp) {
+        const m = rawText.match(p);
+        if (m) {
+          const pts = m[1].split(/[\/\-.]/);
+          date = pts[0].length === 4 ? `${pts[0]}-${pts[1]}-${pts[2]}` : `${pts[2]}-${pts[1]}-${pts[0]}`;
+          break;
+        }
+      }
+
       document.getElementById('fieldName').value = name;
       document.getElementById('fieldVoucher').value = voucher;
       document.getElementById('fieldAmount').value = amount;
       document.getElementById('fieldDate').value = date;
-      setBadge('badgeName', name); setBadge('badgeVoucher', voucher); setBadge('badgeAmount', amount);
+
+      setBadge('badgeName', name); setBadge('badgeVoucher', voucher);
+      setBadge('badgeAmount', amount);
       setBadge('badgeDate', date !== new Date().toISOString().split('T')[0]);
     }
 
     function setBadge(id, detected) {
       const el = document.getElementById(id);
-      if (detected) { el.textContent = 'auto'; el.className = 'badge auto'; }
-      else { el.textContent = 'manual'; el.className = 'badge manual'; }
+      if (detected) { el.textContent = 'auto'; el.className = 'badge ok'; }
+      else { el.textContent = 'manual'; el.className = 'badge warn'; }
     }
 
     // ==================== TABLE ====================
@@ -323,5 +618,156 @@
       const voucher = document.getElementById('fieldVoucher').value.trim();
       const amount = parseFloat(document.getElementById('fieldAmount').value) || 0;
       const date = document.getElementById('fieldDate').value;
-      if (!name && !voucher) { showToast('Please enter at least name or voucher number.'); return; }
-      vouchers.push({ id: Date.now(), name: name || 'Unknown', voucher: voucher || 'N/A', amount: amount, date: date || new Date().toISOString().split('T')[0], 
+      if (!name && !voucher) { showToast('Please enter name or voucher number.'); return; }
+      pushVoucher(name || 'Unknown', voucher || 'N/A', amount, date || new Date().toISOString().split('T')[0]);
+      showToast('Added! Scan another or export below.');
+      clearFields();
+      resetPreview();
+    }
+
+    function addManual() {
+      const name = document.getElementById('manualName').value.trim();
+      const voucher = document.getElementById('manualVoucher').value.trim();
+      const amount = parseFloat(document.getElementById('manualAmount').value) || 0;
+      const date = document.getElementById('manualDate').value;
+      if (!name && !voucher) { showToast('Please enter name or voucher number.'); return; }
+      pushVoucher(name || 'Unknown', voucher || 'N/A', amount, date || new Date().toISOString().split('T')[0]);
+      showToast('Manual entry added!');
+      clearManual();
+    }
+
+    function pushVoucher(name, voucher, amount, date) {
+      vouchers.push({
+        id: Date.now(), name, voucher, amount, date,
+        timestamp: new Date().toLocaleString('en-BD')
+      });
+      renderTable();
+    }
+
+    function clearFields() {
+      ['fieldName','fieldVoucher','fieldAmount','fieldDate'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('rawOcrText').textContent = 'No text extracted yet.';
+      document.getElementById('resultCard').classList.add('hidden');
+      ['badgeName','badgeVoucher','badgeAmount','badgeDate'].forEach(id => { document.getElementById(id).textContent = 'auto'; document.getElementById(id).className = 'badge ok'; });
+    }
+
+    function clearManual() {
+      ['manualName','manualVoucher','manualAmount','manualDate'].forEach(id => document.getElementById(id).value = '');
+    }
+
+    function resetPreview() {
+      const img = document.getElementById('previewBox').querySelector('img.preview-img');
+      if (img) img.remove();
+      document.getElementById('placeholder').classList.remove('hidden');
+      currentImage = null;
+    }
+
+    function deleteVoucher(id) {
+      vouchers = vouchers.filter(v => v.id !== id);
+      renderTable();
+      showToast('Removed.');
+    }
+
+    function clearAll() {
+      if (!vouchers.length) return;
+      if (!confirm(`Delete all ${vouchers.length} vouchers?`)) return;
+      vouchers = []; renderTable(); showToast('All cleared.');
+    }
+
+    function renderTable() {
+      const container = document.getElementById('tableContainer');
+      const hasData = vouchers.length > 0;
+      document.getElementById('countBadge').textContent = vouchers.length + ' item' + (vouchers.length !== 1 ? 's' : '');
+      ['btnXLSX','btnCSV','btnTXT','btnClearAll'].forEach(id => document.getElementById(id).disabled = !hasData);
+
+      if (!hasData) {
+        container.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div style="font-weight:600;color:var(--secondary);">No vouchers yet</div><div style="font-size:12px;">Use camera, upload, or manual entry</div></div>`;
+        return;
+      }
+
+      let html = `<table class="data-table"><thead><tr><th>#</th><th>Name</th><th>Voucher</th><th class="amount">Amount</th><th>Date</th><th></th></tr></thead><tbody>`;
+      vouchers.forEach((v, i) => {
+        html += `<tr><td>${i+1}</td><td>${esc(v.name)}</td><td><span class="vcode">${esc(v.voucher)}</span></td><td class="amount">৳${v.amount.toLocaleString('en-BD',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>${v.date}</td><td class="del-btn"><button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deleteVoucher(${v.id})">🗑</button></td></tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function esc(t) { const d=document.createElement('div');d.textContent=t;return d.innerHTML; }
+
+    // ==================== EXPORT ====================
+    function exportXLSX() {
+      if (!vouchers.length) { showToast('No data to export.'); return; }
+      if (!xlsxReady || typeof XLSX === 'undefined') {
+        showToast('Excel library not loaded yet. Try CSV instead.');
+        return;
+      }
+      try {
+        const data = vouchers.map((v, i) => ({
+          'SL': i+1, 'Name': v.name, 'Voucher Number': v.voucher,
+          'Amount (BDT)': v.amount, 'Date': v.date, 'Scanned At': v.timestamp
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Vouchers');
+        ws['!cols'] = [{wch:5}, {wch:25}, {wch:22}, {wch:15}, {wch:12}, {wch:20}];
+        XLSX.writeFile(wb, `vouchers_${fmtDate()}.xlsx`);
+        showToast('Excel downloaded! Check your Downloads folder.');
+      } catch (e) {
+        console.error(e);
+        showToast('Excel export failed. Try CSV.');
+      }
+    }
+
+    function exportCSV() {
+      if (!vouchers.length) { showToast('No data to export.'); return; }
+      let csv = '﻿SL,Name,Voucher Number,Amount (BDT),Date,Scanned At\n';
+      vouchers.forEach((v, i) => {
+        csv += `${i+1},"${v.name.replace(/"/g,'""')}","${v.voucher}",${v.amount},${v.date},"${v.timestamp}"\n`;
+      });
+      downloadFile(csv, `vouchers_${fmtDate()}.csv`, 'text/csv;charset=utf-8;');
+      showToast('CSV downloaded!');
+    }
+
+    function exportTXT() {
+      if (!vouchers.length) { showToast('No data to export.'); return; }
+      let txt = '========================================\n';
+      txt += '     OCR VOUCHER SCAN REPORT\n';
+      txt += '========================================\n\n';
+      let total = 0;
+      vouchers.forEach((v, i) => {
+        txt += `Record #${i+1}\n  Name:     ${v.name}\n  Voucher:  ${v.voucher}\n  Amount:   ৳ ${v.amount.toLocaleString('en-BD',{minimumFractionDigits:2})}\n  Date:     ${v.date}\n  Scanned:  ${v.timestamp}\n\n`;
+        total += v.amount;
+      });
+      txt += `----------------------------------------\nTotal: ৳ ${total.toLocaleString('en-BD',{minimumFractionDigits:2})}\n========================================\n`;
+      downloadFile(txt, `vouchers_${fmtDate()}.txt`, 'text/plain');
+      showToast('TXT report downloaded!');
+    }
+
+    function fmtDate() {
+      const d = new Date();
+      return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function downloadFile(content, filename, mime) {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ==================== UTILS ====================
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // Init
+    renderTable();
+  </script>
+</body>
+</html>
