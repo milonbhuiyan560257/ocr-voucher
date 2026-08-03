@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OCR Voucher Scanner | ভাউচার স্ক্যানার</title>
+  <!-- Tesseract.js OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #111111; --secondary: #666666; --muted: #999999;
+      --border: #e5e5e5; --surface: #fafafa; --danger: #dc3545;
+      --success: #28a745; --warning: #f0ad4e; --radius: 10px;
+      --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Bengali", sans-serif;
+      background: #f5f5f5; color: var(--primary); line-height: 1.5; padding-bottom: 40px;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 16px; }
+    header { background: var(--primary); color: #fff; padding: 20px 16px; text-align: center; margin-bottom: 20px; }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .preview-box {
+      width: 100%; aspect-ratio: 4/3; border: 2px dashed var(--border); border-radius: var(--radius);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; color: var(--muted); background: var(--surface); position: relative; overflow: hidden;
+    }
+    .preview-box img, .preview-box video { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; background: #000; }
+    .preview-box .placeholder { text-align: center; padding: 20px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;
+      border: 1px solid var(--border); background: #fff; color: var(--primary); font-size: 14px;
+      font-weight: 500; cursor: pointer; transition: all 0.15s ease; text-decoration: none;
+    }
+    .btn:hover { background: var(--surface); }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-primary:hover { background: #333; }
+    .btn-success { color: var(--success); border-color: var(--success); }
+    .btn-success:hover { background: rgba(40,167,69,0.08); }
+    .btn-danger { color: var(--danger); border-color: var(--danger); }
+    .btn-danger:hover { background: rgba(220,53,69,0.08); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .progress-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+    .progress-bar .fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width 0.3s ease; width: 0%; }
+    .progress-text { font-size: 12px; color: var(--muted); margin-top: 6px; text-align: center; }
+    .field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .field-row label { width: 110px; font-size: 13px; color: var(--secondary); flex-shrink: 0; font-weight: 500; }
+    .field-row input, .field-row select { flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+    .field-row input:focus, .field-row select:focus { outline: none; border-color: var(--primary); }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+    .badge.auto { background: rgba(40,167,69,0.12); color: var(--success); }
+    .badge.manual { background: rgba(220,53,69,0.12); color: var(--danger); }
+    .ocr-raw { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-family: "SF Mono", Consolas, monospace; font-size: 12px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--secondary); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .data-table td { padding: 10px; border-bottom: 1px solid var(--border); }
+    .data-table tr:hover td { background: var(--surface); }
+    .data-table .amount { font-variant-numeric: tabular-nums; text-align: right; font-weight: 500; }
+    .data-table .voucher-code { font-family: "SF Mono", Consolas, monospace; font-size: 12px; background: var(--surface); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); }
+    .data-table .row-actions { opacity: 0; transition: opacity 0.15s ease; text-align: right; }
+    .data-table tr:hover .row-actions { opacity: 1; }
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 12px 20px; border-radius: 10px; background: var(--primary); color: #fff; font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1000; opacity: 0; transition: all 0.3s ease; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .hidden { display: none !important; }
+    @media (max-width: 480px) {
+      .field-row { flex-direction: column; align-items: stretch; gap: 4px; }
+      .field-row label { width: auto; }
+      .btn-group .btn { flex: 1; justify-content: center; }
+      .data-table { font-size: 12px; }
+      .data-table th, .data-table td { padding: 6px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📄 OCR Voucher Scanner</h1>
+    <p>মোবাইল ক্যামেরা দিয়ে ভাউচার স্ক্যান করুন → OCR → Excel/CSV/TXT এক্সপোর্ট</p>
+  </header>
+  <div class="container">
+    <!-- Camera / Upload -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Capture voucher image
+        <span class="badge manual" id="engineStatus" style="text-transform:none;">Loading Tesseract...</span>
+      </div>
+      <div class="preview-box" id="previewBox" onclick="document.getElementById('fileInput').click()">
+        <div class="placeholder" id="placeholder">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <div>Tap to upload or use camera below</div>
+          <div style="font-size:12px; margin-top:4px;">Supports JPG, PNG, WEBP</div>
+        </div>
+        <video id="video" class="hidden" autoplay playsinline></video>
+        <canvas id="canvas" class="hidden"></canvas>
+        <button class="btn btn-primary hidden" id="btnSnap" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:10;" onclick="event.stopPropagation();takeSnapshot()">📷 Take Photo</button>
+      </div>
+      <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleFile(event)">
+      <div class="btn-group" style="margin-top:12px;">
+        <button class="btn btn-primary" id="btnCamera" onclick="startCamera()">📷 Open Camera</button>
+        <button class="btn" onclick="document.getElementById('fileInput').click()">⬆️ Upload Image</button>
+        <button class="btn" onclick="loadDemo()">🧪 Load Demo</button>
+      </div>
+      <div class="progress-bar hidden" id="progressBar"><div class="fill" id="progressFill"></div></div>
+      <div class="progress-text hidden" id="progressText"></div>
+    </div>
+
+    <!-- OCR Results -->
+    <div class="card hidden" id="resultCard">
+      <div class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+        Extracted fields <span class="badge auto" id="ocrStatus">Ready</span>
+      </div>
+      <div class="field-row"><label>Name</label><input type="text" id="fieldName" placeholder="e.g. Md. Rakib Hasan"><span class="badge auto" id="badgeName">auto</span></div>
+      <div class="field-row"><label>Voucher No</label><input type="text" id="fieldVoucher" placeholder="e.g. VCH-2026-001234"><span class="badge auto" id="badgeVoucher">auto</span></div>
+      <div class="field-row"><label>Amount (৳)</label><input type="number" id="fieldAmount" placeholder="e.g. 5000.00" step="0.01"><span class="badge auto" id="badgeAmount">auto</span></div>
+      <div class="field-row"><label>Date</label><input type="date" id="fieldDate"><span class="badge auto" id="badgeDate">auto</span></div>
+      <div style="margin-top:10px;">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:4px; font-weight:500;">Raw OCR text</div>
+        <div class="ocr-raw" id="rawOcrText">No text extracted yet.</div>
+      </div>
+      <div class="btn-group" style="margin-top:12px;">
+        <button class="btn btn-primary" onclick="addToTable()">➕ Add to table</button>
+        <button class="btn" onclick="clearFields()">🗑️ Clear</button>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Scanned vouchers <span class="badge manual" id="countBadge">0 items</span>
+        </div>
+        <button class="btn btn-danger" onclick="clearAll()" id="btnClearAll" disabled>🗑️ Clear all</button>
+      </div>
+      <div id="tableContainer">
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <div>No vouchers scanned yet</div>
+          <div>Use camera or upload to get started</div>
+        </div>
+      </div>
+      <div class="btn-group" style="margin-top:12px;">
+        <button class="btn btn-success" onclick="exportXLSX()" id="btnXLSX" disabled>📊 Export .xlsx</button>
+        <button class="btn" onclick="exportCSV()" id="btnCSV" disabled>📝 Export .csv</button>
+        <button class="btn" onclick="exportTXT()" id="btnTXT" disabled>📄 Export .txt</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ==================== STATE ====================
+    let vouchers = [];
+    let currentImage = null;
+    let worker = null;
+    let isProcessing = false;
+
+    // ==================== INIT TESSERACT ====================
+    async function initTesseract() {
+      try {
+        worker = await Tesseract.createWorker('eng+ben', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') updateProgress(Math.round(m.progress * 100), 'Recognizing text...');
+            else if (m.status === 'loading language traineddata') updateProgress(Math.round(m.progress * 100), 'Loading Bengali + English models...');
+          }
+        });
+        document.getElementById('engineStatus').textContent = 'Tesseract ready';
+        document.getElementById('engineStatus').className = 'badge auto';
+        showToast('Tesseract.js loaded successfully!');
+      } catch (e) {
+        document.getElementById('engineStatus').textContent = 'Tesseract error';
+        document.getElementById('engineStatus').className = 'badge manual';
+      }
+    }
+    initTesseract();
+
+    // ==================== CAMERA ====================
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        video.classList.remove('hidden');
+        document.getElementById('placeholder').classList.add('hidden');
+        document.getElementById('btnSnap').classList.remove('hidden');
+        document.getElementById('btnCamera').disabled = true;
+        showToast('Camera active. Point at voucher and tap Take Photo.');
+      } catch (err) {
+        showToast('Camera access denied. Use upload instead.');
+      }
+    }
+
+    function takeSnapshot() {
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      currentImage = canvas.toDataURL('image/jpeg', 0.9);
+      const stream = video.srcObject;
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      video.classList.add('hidden');
+      document.getElementById('btnSnap').classList.add('hidden');
+      document.getElementById('btnCamera').disabled = false;
+      showPreview(currentImage);
+      runOCR(currentImage);
+    }
+
+    // ==================== FILE UPLOAD ====================
+    function handleFile(e) {
+      const file = e.target.files[0];
+      if (!file || !file.type.startsWith('image/')) { showToast('Please select an image file.'); return; }
+      const reader = new FileReader();
+      reader.onload = ev => { currentImage = ev.target.result; showPreview(currentImage); runOCR(currentImage); };
+      reader.readAsDataURL(file);
+    }
+
+    function showPreview(src) {
+      const box = document.getElementById('previewBox');
+      document.getElementById('placeholder').classList.add('hidden');
+      const existing = box.querySelector('img.preview-img');
+      if (existing) existing.remove();
+      const img = document.createElement('img');
+      img.src = src; img.className = 'preview-img';
+      img.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;background:#000;';
+      box.appendChild(img);
+    }
+
+    // ==================== DEMO ====================
+    function loadDemo() {
+      const c = document.createElement('canvas');
+      c.width = 700; c.height = 450;
+      const x = c.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0, 0, 700, 450);
+      x.strokeStyle = '#333'; x.lineWidth = 3; x.strokeRect(20, 20, 660, 410);
+      x.fillStyle = '#111'; x.font = 'bold 32px sans-serif'; x.fillText('VOUCHER RECEIPT', 230, 70);
+      x.strokeStyle = '#ccc'; x.lineWidth = 1; x.beginPath(); x.moveTo(40, 90); x.lineTo(660, 90); x.stroke();
+      x.fillStyle = '#333'; x.font = '22px sans-serif';
+      x.fillText('Name:        Md. Rakib Hasan', 60, 150);
+      x.fillText('Voucher No:  VCH-2026-001234', 60, 200);
+      x.fillText('Amount:      Tk. 5,000.00', 60, 250);
+      x.fillText('Date:        04/08/2026', 60, 300);
+      x.fillText('Purpose:     Office Supplies', 60, 350);
+      x.fillText('Authorized: _________________', 400, 380);
+      currentImage = c.toDataURL('image/png');
+      showPreview(currentImage);
+      runOCR(currentImage);
+    }
+
+    // ==================== OCR ====================
+    async function runOCR(imageSrc) {
+      if (isProcessing) return;
+      isProcessing = true;
+      document.getElementById('resultCard').classList.add('hidden');
+      document.getElementById('progressBar').classList.remove('hidden');
+      document.getElementById('progressText').classList.remove('hidden');
+      updateProgress(10, 'Initializing OCR engine...');
+      try {
+        if (!worker) { updateProgress(30, 'Creating worker...'); worker = await Tesseract.createWorker('eng+ben'); }
+        updateProgress(50, 'Recognizing text...');
+        const result = await worker.recognize(imageSrc);
+        updateProgress(90, 'Parsing fields...');
+        parseAndFill(result.data.text);
+        updateProgress(100, 'Done!');
+        setTimeout(() => {
+          document.getElementById('progressBar').classList.add('hidden');
+          document.getElementById('progressText').classList.add('hidden');
+          document.getElementById('resultCard').classList.remove('hidden');
+          isProcessing = false;
+          showToast('OCR complete! Fields auto-detected.');
+        }, 400);
+      } catch (err) {
+        document.getElementById('progressBar').classList.add('hidden');
+        document.getElementById('progressText').classList.add('hidden');
+        isProcessing = false;
+        showToast('OCR failed: ' + err.message);
+      }
+    }
+
+    function updateProgress(pct, msg) {
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressText').textContent = msg;
+    }
+
+    function parseAndFill(rawText) {
+      document.getElementById('rawOcrText').textContent = rawText;
+      let name = '', voucher = '', amount = '', date = new Date().toISOString().split('T')[0];
+      const np = [/(?:Name|Payee|Received from|Recipient)[:\s]+([A-Z][a-zA-Z.\s]+)/i, /(?:Name|Payee|Received from)[:\s]+([\u0980-\u09FF\s]+)/, /([A-Z][a-z]+\s+[A-Z][a-z]+)/];
+      for (const p of np) { const m = rawText.match(p); if (m) { name = m[1].trim(); break; } }
+      const vp = [/(?:Voucher|Voucher#|Voucher No|Voucher Number|Receipt No)[:\s#-]+([A-Z0-9\-]+)/i, /(?:VCH|RCPT|REF)[-\s]?([0-9\-]+)/i];
+      for (const p of vp) { const m = rawText.match(p); if (m) { voucher = m[1].trim(); break; } }
+      const ap = [/(?:Amount|Total|Paid|Tk|৳|BDT|Rs)[:\s]+(?:Tk\.?|৳|BDT|Rs\.?)?\s*([0-9,]+\.?\d{0,2})/i, /([0-9,]+\.\d{2})/];
+      for (const p of ap) { const m = rawText.match(p); if (m) { amount = m[1].replace(/,/g, ''); break; } }
+      const dp = [/(\d{2}[\/\-.]\d{2}[\/\-.]\d{4})/, /(\d{4}[\/\-.]\d{2}[\/\-.]\d{2})/];
+      for (const p of dp) { const m = rawText.match(p); if (m) { const pts = m[1].split(/[\/\-.]/); date = pts[0].length === 4 ? `${pts[0]}-${pts[1]}-${pts[2]}` : `${pts[2]}-${pts[1]}-${pts[0]}`; break; } }
+      document.getElementById('fieldName').value = name;
+      document.getElementById('fieldVoucher').value = voucher;
+      document.getElementById('fieldAmount').value = amount;
+      document.getElementById('fieldDate').value = date;
+      setBadge('badgeName', name); setBadge('badgeVoucher', voucher); setBadge('badgeAmount', amount);
+      setBadge('badgeDate', date !== new Date().toISOString().split('T')[0]);
+    }
+
+    function setBadge(id, detected) {
+      const el = document.getElementById(id);
+      if (detected) { el.textContent = 'auto'; el.className = 'badge auto'; }
+      else { el.textContent = 'manual'; el.className = 'badge manual'; }
+    }
+
+    // ==================== TABLE ====================
+    function addToTable() {
+      const name = document.getElementById('fieldName').value.trim();
+      const voucher = document.getElementById('fieldVoucher').value.trim();
+      const amount = parseFloat(document.getElementById('fieldAmount').value) || 0;
+      const date = document.getElementById('fieldDate').value;
+      if (!name && !voucher) { showToast('Please enter at least name or voucher number.'); return; }
+      vouchers.push({ id: Date.now(), name: name || 'Unknown', voucher: voucher || 'N/A', amount: amount, date: date || new Date().toISOString().split('T')[0], 
